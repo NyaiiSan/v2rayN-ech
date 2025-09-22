@@ -2491,6 +2491,24 @@ namespace ServiceLib.Resx {
         }
         
         /// <summary>
+        ///   查找类似 Ech config list 的本地化字符串。
+        /// </summary>
+        public static string TbEchConfigList {
+            get {
+                return ResourceManager.GetString("TbEchConfigList", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 Ech force query 的本地化字符串。
+        /// </summary>
+        public static string TbEchForceQuery {
+            get {
+                return ResourceManager.GetString("TbEchForceQuery", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   查找类似 Edit 的本地化字符串。
         /// </summary>
         public static string TbEdit {

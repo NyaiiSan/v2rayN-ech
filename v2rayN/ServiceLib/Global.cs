@@ -615,5 +615,13 @@ public class Global
             ""
     ];
 
+    public static readonly List<string> EchForceQuerys =
+    [
+        "",
+            "half",
+            "full",
+            "none"
+    ];
+
     #endregion const
 }

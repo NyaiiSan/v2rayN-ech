@@ -248,6 +248,8 @@ public static class ConfigHandler
             item.AllowInsecure = profileItem.AllowInsecure;
             item.Fingerprint = profileItem.Fingerprint;
             item.Alpn = profileItem.Alpn;
+            item.EchConfigList = profileItem.EchConfigList;
+            item.EchForceQuery = profileItem.EchForceQuery;
 
             item.PublicKey = profileItem.PublicKey;
             item.ShortId = profileItem.ShortId;

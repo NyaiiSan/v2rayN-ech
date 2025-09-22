@@ -350,6 +350,10 @@ public class TlsSettings4Ray
 
     public string? fingerprint { get; set; }
 
+    public string? echConfigList { get; set; }
+
+    public string? echForceQuery { get; set; }
+
     public bool? show { get; set; }
     public string? publicKey { get; set; }
     public string? shortId { get; set; }

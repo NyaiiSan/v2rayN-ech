@@ -246,6 +246,8 @@ public partial class CoreConfigV2rayService
             var path = node.Path.TrimEx();
             var sni = node.Sni.TrimEx();
             var useragent = "";
+            var echConfigList = node.EchConfigList.TrimEx();
+            var echForceQuery = node.EchForceQuery.TrimEx();
             if (!_config.CoreBasicItem.DefUserAgent.IsNullOrEmpty())
             {
                 try
@@ -276,6 +278,11 @@ public partial class CoreConfigV2rayService
                 else if (host.IsNotEmpty())
                 {
                     tlsSettings.serverName = Utils.String2List(host)?.First();
+                }
+                if (echConfigList.IsNotEmpty())
+                {
+                    tlsSettings.echConfigList = echConfigList;
+                    tlsSettings.echForceQuery = echForceQuery;
                 }
                 streamSettings.tlsSettings = tlsSettings;
             }
