@@ -43,6 +43,14 @@ public class BaseFmt
         {
             dicQuery.Add("alpn", Utils.UrlEncode(item.Alpn));
         }
+        if (item.EchConfigList.IsNotEmpty())
+        {
+            dicQuery.Add("echcl", Utils.UrlEncode(item.EchConfigList));
+        }
+        if (item.EchForceQuery.IsNotEmpty())
+        {
+            dicQuery.Add("echfq", Utils.UrlEncode(item.EchForceQuery));
+        }
         if (item.Fingerprint.IsNotEmpty())
         {
             dicQuery.Add("fp", Utils.UrlEncode(item.Fingerprint));
@@ -159,6 +167,8 @@ public class BaseFmt
         item.StreamSecurity = query["security"] ?? "";
         item.Sni = query["sni"] ?? "";
         item.Alpn = Utils.UrlDecode(query["alpn"] ?? "");
+        item.EchConfigList = Utils.UrlDecode(query["echcl"] ?? "");
+        item.EchForceQuery = Utils.UrlDecode(query["echfq"] ?? "");
         item.Fingerprint = Utils.UrlDecode(query["fp"] ?? "");
         item.PublicKey = Utils.UrlDecode(query["pbk"] ?? "");
         item.ShortId = Utils.UrlDecode(query["sid"] ?? "");
