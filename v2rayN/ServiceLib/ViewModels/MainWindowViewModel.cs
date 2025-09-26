@@ -1,8 +1,8 @@
 using System.Reactive;
 using System.Reactive.Concurrency;
+using System.Reactive.Linq;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
-using Splat;
 
 namespace ServiceLib.ViewModels;
 
@@ -184,7 +184,7 @@ public class MainWindowViewModel : MyReactiveObject
         });
         RebootAsAdminCmd = ReactiveCommand.CreateFromTask(async () =>
         {
-            await RebootAsAdmin();
+            await AppManager.Instance.RebootAsAdmin();
         });
         ClearServerStatisticsCmd = ReactiveCommand.CreateFromTask(async () =>
         {
@@ -217,6 +217,30 @@ public class MainWindowViewModel : MyReactiveObject
 
         #endregion WhenAnyValue && ReactiveCommand
 
+        #region AppEvents
+
+        AppEvents.ReloadRequested
+            .AsObservable()
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(async _ => await Reload());
+
+        AppEvents.AddServerViaScanRequested
+            .AsObservable()
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(async _ => await AddServerViaScanAsync());
+
+        AppEvents.AddServerViaClipboardRequested
+            .AsObservable()
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(async _ => await AddServerViaClipboardAsync(null));
+
+        AppEvents.SubscriptionsUpdateRequested
+            .AsObservable()
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(async blProxy => await UpdateSubscriptionProcess("", blProxy));
+
+        #endregion AppEvents
+
         _ = Init();
     }
 
@@ -240,7 +264,6 @@ public class MainWindowViewModel : MyReactiveObject
         BlReloadEnabled = true;
         await Reload();
         await AutoHideStartup();
-        Locator.Current.GetService<StatusBarViewModel>()?.RefreshRoutingsMenu();
     }
 
     #endregion Init
@@ -269,7 +292,7 @@ public class MainWindowViewModel : MyReactiveObject
             }
             if (_config.UiItem.EnableAutoAdjustMainLvColWidth)
             {
-                AppEvents.AdjustMainLvColWidthRequested.OnNext(Unit.Default);
+                AppEvents.AdjustMainLvColWidthRequested.Publish();
             }
         }
     }
@@ -280,12 +303,7 @@ public class MainWindowViewModel : MyReactiveObject
         {
             return;
         }
-        AppEvents.DispatcherStatisticsRequested.OnNext(update);
-    }
-
-    public void ShowHideWindow(bool? blShow)
-    {
-        _updateView?.Invoke(EViewAction.ShowHideWindow, blShow);
+        AppEvents.DispatcherStatisticsRequested.Publish(update);
     }
 
     #endregion Actions
@@ -294,14 +312,14 @@ public class MainWindowViewModel : MyReactiveObject
 
     private async Task RefreshServers()
     {
-        AppEvents.ProfilesRefreshRequested.OnNext(Unit.Default);
+        AppEvents.ProfilesRefreshRequested.Publish();
 
         await Task.Delay(200);
     }
 
     private void RefreshSubscriptions()
     {
-        Locator.Current.GetService<ProfilesViewModel>()?.RefreshSubscriptions();
+        AppEvents.SubscriptionsRefreshRequested.Publish();
     }
 
     #endregion Servers && Groups
@@ -433,7 +451,7 @@ public class MainWindowViewModel : MyReactiveObject
         var ret = await _updateView?.Invoke(EViewAction.OptionSettingWindow, null);
         if (ret == true)
         {
-            Locator.Current.GetService<StatusBarViewModel>()?.InboundDisplayStatus();
+            AppEvents.InboundDisplayRequested.Publish();
             await Reload();
         }
     }
@@ -444,7 +462,7 @@ public class MainWindowViewModel : MyReactiveObject
         if (ret == true)
         {
             await ConfigHandler.InitBuiltinRouting(_config);
-            Locator.Current.GetService<StatusBarViewModel>()?.RefreshRoutingsMenu();
+            AppEvents.RoutingsMenuRefreshRequested.Publish();
             await Reload();
         }
     }
@@ -465,12 +483,6 @@ public class MainWindowViewModel : MyReactiveObject
         {
             await Reload();
         }
-    }
-
-    public async Task RebootAsAdmin()
-    {
-        ProcUtils.RebootAsAdmin();
-        await AppManager.Instance.AppExitAsync(true);
     }
 
     private async Task ClearServerStatistics()
@@ -518,9 +530,15 @@ public class MainWindowViewModel : MyReactiveObject
             await SysProxyHandler.UpdateSysProxy(_config, false);
             await Task.Delay(1000);
         });
-        Locator.Current.GetService<StatusBarViewModel>()?.TestServerAvailability();
+        AppEvents.TestServerRequested.Publish();
 
-        RxApp.MainThreadScheduler.Schedule(() => _ = ReloadResult());
+        var showClashUI = _config.IsRunningCore(ECoreType.sing_box);
+        if (showClashUI)
+        {
+            AppEvents.ProxiesReloadRequested.Publish();
+        }
+
+        RxApp.MainThreadScheduler.Schedule(() => ReloadResult(showClashUI));
 
         BlReloadEnabled = true;
         if (_hasNextReloadJob)
@@ -530,19 +548,11 @@ public class MainWindowViewModel : MyReactiveObject
         }
     }
 
-    public async Task ReloadResult()
+    private void ReloadResult(bool showClashUI)
     {
         // BlReloadEnabled = true;
-        //Locator.Current.GetService<StatusBarViewModel>()?.ChangeSystemProxyAsync(_config.systemProxyItem.sysProxyType, false);
-        ShowClashUI = _config.IsRunningCore(ECoreType.sing_box);
-        if (ShowClashUI)
-        {
-            Locator.Current.GetService<ClashProxiesViewModel>()?.ProxiesReload();
-        }
-        else
-        {
-            TabMainSelectedIndex = 0;
-        }
+        ShowClashUI = showClashUI;
+        TabMainSelectedIndex = showClashUI ? TabMainSelectedIndex : 0;
     }
 
     private async Task LoadCore()
@@ -551,17 +561,11 @@ public class MainWindowViewModel : MyReactiveObject
         await CoreManager.Instance.LoadCore(node);
     }
 
-    public async Task CloseCore()
-    {
-        await ConfigHandler.SaveConfig(_config);
-        await CoreManager.Instance.CoreStop();
-    }
-
     private async Task AutoHideStartup()
     {
         if (_config.UiItem.AutoHideStartup)
         {
-            ShowHideWindow(false);
+            AppEvents.ShowHideWindowRequested.Publish(false);
         }
         await Task.CompletedTask;
     }
@@ -574,7 +578,7 @@ public class MainWindowViewModel : MyReactiveObject
     {
         await ConfigHandler.ApplyRegionalPreset(_config, type);
         await ConfigHandler.InitRouting(_config);
-        Locator.Current.GetService<StatusBarViewModel>()?.RefreshRoutingsMenu();
+        AppEvents.RoutingsMenuRefreshRequested.Publish();
 
         await ConfigHandler.SaveConfig(_config);
         await new UpdateService().UpdateGeoFileAll(_config, UpdateTaskHandler);
